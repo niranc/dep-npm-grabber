@@ -63,17 +63,21 @@ def parse_package_json(content: str) -> Dict[str, List[Dict[str, str]]]:
         return {"dependencies": []}
 
 def parse_js_dependencies(content: str) -> Dict[str, List[Dict[str, str]]]:
+    logger.advanced("Looking for dependencies")
     dependencies = []
     
-    dep_pattern = r'dependencies:\{([^}]+)\}'
-    dev_dep_pattern = r'devDependencies:\{([^}]+)\}'
+    dep_pattern = r'"dependencies"\s*:\s*\{([^}]*)\}'
+    dev_dep_pattern = r'"devDependencies"\s*:\s*\{([^}]*)\}'
     
     def parse_dep_string(dep_str: str, dep_type: str):
         pairs = re.finditer(r'(?:"|,)?(["\w\-\.]+):"([^"]+)"', dep_str)
+        pairs = list(re.finditer(r'(?:"|,)?(["\w\-\.]+):"([^"]+)"', dep_str))
+        #logger.advanced(f"Pairs found: {pairs}")
         
         for match in pairs:
             name, version = match.groups()
             name = name.strip('"')
+            #logger.advanced(f"Parsing dependency: {name}@{version}")
             if name and version:
                 dependencies.append({
                     "name": name,
@@ -82,14 +86,16 @@ def parse_js_dependencies(content: str) -> Dict[str, List[Dict[str, str]]]:
                 })
                 logger.advanced(f"{dep_type.capitalize()} found: {name}@{version}")
             else:
-                logger.debug(f"Ignored part due to invalid format: {name}:{version}")
+                logger.advanced(f"Ignored part due to invalid format: {name}:{version}")
     
     for dep_match in re.finditer(dep_pattern, content):
         deps = dep_match.group(1)
+        logger.advanced(f"Dep match found: {deps}")
         parse_dep_string(deps, "dependency")
             
     for dev_match in re.finditer(dev_dep_pattern, content):
         dev_deps = dev_match.group(1)
+        logger.advanced(f"Dev dep match found: {dev_deps}")
         parse_dep_string(dev_deps, "devDependency")
             
     return {"dependencies": dependencies}
