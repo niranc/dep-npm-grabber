@@ -39,6 +39,7 @@ def parse_package_json(content: str) -> Dict[str, List[Dict[str, str]]]:
         dependencies = []
         
         if "dependencies" in data:
+            logger.advanced(f"Data: {data}")
             for name, version in data["dependencies"].items():
                 dependencies.append({
                     "name": name,
@@ -48,6 +49,7 @@ def parse_package_json(content: str) -> Dict[str, List[Dict[str, str]]]:
                 logger.advanced(f"Dependency found: {name}@{version}")
                 
         if "devDependencies" in data:
+            logger.advanced(f"Data: {data}")
             for name, version in data["devDependencies"].items():
                 dependencies.append({
                     "name": name, 
@@ -70,14 +72,12 @@ def parse_js_dependencies(content: str) -> Dict[str, List[Dict[str, str]]]:
     dev_dep_pattern = r'"devDependencies"\s*:\s*\{([^}]*)\}'
     
     def parse_dep_string(dep_str: str, dep_type: str):
-        pairs = re.finditer(r'(?:"|,)?(["\w\-\.]+):"([^"]+)"', dep_str)
-        pairs = list(re.finditer(r'(?:"|,)?(["\w\-\.]+):"([^"]+)"', dep_str))
-        #logger.advanced(f"Pairs found: {pairs}")
-        
+        pairs = re.finditer(r'(?:"|,)?([\w\-\.\/@]+)":"([^"]+)"', dep_str)
+        pairs = list(pairs)
+        logger.advanced(f"Pairs found: {len(pairs)}")
         for match in pairs:
             name, version = match.groups()
             name = name.strip('"')
-            #logger.advanced(f"Parsing dependency: {name}@{version}")
             if name and version:
                 dependencies.append({
                     "name": name,
@@ -86,7 +86,18 @@ def parse_js_dependencies(content: str) -> Dict[str, List[Dict[str, str]]]:
                 })
                 logger.advanced(f"{dep_type.capitalize()} found: {name}@{version}")
             else:
-                logger.advanced(f"Ignored part due to invalid format: {name}:{version}")
+                logger.advanced(f"Ignored part due to invalid format")
+            name, version = match.groups()
+            name = name.strip('"')
+            if name and version:
+                dependencies.append({
+                    "name": name,
+                    "version": version,
+                    "type": dep_type
+                })
+                logger.advanced(f"{dep_type.capitalize()} found: {name}@{version}")
+            else:
+                logger.advanced(f"Ignored part due to invalid format")
     
     for dep_match in re.finditer(dep_pattern, content):
         deps = dep_match.group(1)
