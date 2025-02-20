@@ -2,12 +2,16 @@
 Look for npm dependencies in js / package.json file and check potential takeover 
 
 # TL;DR
+## Collect
 1. Retreive list of urls grabbed by dependencies": string in body
 - `cat webservers.txt | katana -jc -d 2 -o katana.txt`
 - `cat katana.txt | anew | httpx -silent -ms 'dependencies":' | anew scope.txt `
 2. Retreive 3rdpartylicenses files
 - `cat webservers.txt|httpx -path "/3rdpartylicenses.txt" -ms "Apache License" | anew scope.txt `
+3. Retreive package.json, package-lock.json, yarn.lock files
+- `cat webservers.txt | nuclei -id yarn-lock,package-json -silent | awk '{print $4}' | anew scope.txt`
 
+## Exploit
 3. Launch dep-npm-grabber
 - `python3 dep-npm-grabber.py -f scope.txt -v`
 4. Verify takeover
