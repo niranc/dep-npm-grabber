@@ -36,3 +36,6 @@ optional arguments:
   -ct, --check-takeover
                         Check for package takeover possibilities
 ```
+
+# TODO
+- [] Add package-lock & yarn.lock parsing
