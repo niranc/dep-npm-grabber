@@ -87,17 +87,6 @@ def parse_js_dependencies(content: str) -> Dict[str, List[Dict[str, str]]]:
                 logger.advanced(f"{dep_type.capitalize()} found: {name}@{version}")
             else:
                 logger.advanced(f"Ignored part due to invalid format")
-            name, version = match.groups()
-            name = name.strip('"')
-            if name and version:
-                dependencies.append({
-                    "name": name,
-                    "version": version,
-                    "type": dep_type
-                })
-                logger.advanced(f"{dep_type.capitalize()} found: {name}@{version}")
-            else:
-                logger.advanced(f"Ignored part due to invalid format")
     
     for dep_match in re.finditer(dep_pattern, content):
         deps = dep_match.group(1)
@@ -110,6 +99,41 @@ def parse_js_dependencies(content: str) -> Dict[str, List[Dict[str, str]]]:
         parse_dep_string(dev_deps, "devDependency")
             
     return {"dependencies": dependencies}
+
+def parse_node_modules(content: str) -> Dict[str, List[Dict[str, str]]]:
+    logger.advanced("Looking for node_modules dependencies")
+    dependencies = []
+    
+    node_modules_pattern = r'/node_modules/(@[^/]+/[^/]+|[^/]+)(?=/|")|/nodes_modules/(@[^/]+/[^/]+|[^/]+)(?=/|")'
+    
+    matches = re.finditer(node_modules_pattern, content)
+    for match in matches:
+        dep_name = match.group(1).split("\"")[0].split(",")[0]
+        dependencies.append({
+            "name": dep_name,
+            "version": "",
+            "type": "dependency"
+        })
+        logger.advanced(f"Node_modules dependency found: {dep_name}")
+    
+    return {"dependencies": dependencies}
+
+def parse_3rdpartylicenses(content: str) -> List[str]:
+    dependencies = []
+    lines = content.splitlines()
+    skip_block = False
+
+    for line in lines:
+        if not line.strip():
+            skip_block = False
+            continue
+        if skip_block or line[0].isupper() or line[0].isdigit() or (len(line) > 1 and line[1] == ')') or line[0] in [' ', '=', '(', '[','#','/','*','-','<','"'] or line[:4] == 'http':
+            skip_block = True
+            continue
+        logger.advanced(f"Dependency line added: {line.strip()}")
+        dependencies.append(line.strip())
+
+    return dependencies
 
 def save_dependencies(url: str, dependencies: List[Dict[str, str]]):
     conn = sqlite3.connect('dependencies.db')
@@ -130,7 +154,7 @@ def save_dependencies(url: str, dependencies: List[Dict[str, str]]):
     conn.commit()
     conn.close()
     if new_deps > 0:
-        logger.success(f"{new_deps} new dependencies saved for {url}")
+        R2Log.console.print(f"[green]{new_deps} new dependencies saved for {url}")
     else:
         logger.advanced(f"No new dependencies for {url}")
     return new_deps
@@ -169,8 +193,13 @@ def process_urls(urls: List[str]):
                 path = urlparse(url).path
                 if path.endswith('package.json'):
                     deps = parse_package_json(content)
+                elif path.endswith('3rdpartylicenses.txt'):
+                    deps = {"dependencies": [{"name": dep, "version": "", "type": "dependency"} for dep in parse_3rdpartylicenses(content)]}
                 else:
-                    deps = parse_js_dependencies(content)
+                    deps_js = parse_js_dependencies(content)
+                    deps_webpack = parse_node_modules(content)
+                    #deps = deps_webpack["dependencies"]
+                    deps = {"dependencies": deps_js["dependencies"] + deps_webpack["dependencies"]}
                 
                 if deps["dependencies"]:
                     new_deps = save_dependencies(url, deps["dependencies"])
@@ -220,10 +249,12 @@ def display_results():
 def check_package_takeover(package_name: str, progress=None) -> bool:
     try:
         time.sleep(0.2)
-        
+        if '@' in package_name and not package_name.startswith('@'):
+            package_name = package_name.split('@')[0]
         url = f"https://registry.npmjs.org/{package_name}"
         if logger.getEffectiveLevel() < 13:
             progress.console.print(f"[yellow]Checking package {package_name}")
+        
         
         response = requests.get(url, verify=False)
         
@@ -231,7 +262,16 @@ def check_package_takeover(package_name: str, progress=None) -> bool:
             progress.console.print(f"[blue]Package response {package_name}: {response.status_code}")
         
         if response.status_code == 404 or response.text == '{"error":"Not found"}':
-            return True
+            if package_name.startswith('@'):
+                orga = package_name.split('/')[0][1:]
+                orga_url = f"https://www.npmjs.com/org/{orga}"
+                orga_response = requests.get(orga_url, verify=False)
+                if logger.getEffectiveLevel() <= 15:
+                    progress.console.print(f"[blue]Organization response {orga}: {orga_response.status_code}")
+                if orga_response.status_code == 404:
+                    return True
+                else:
+                    return False
         return False
         
     except Exception as e:
