@@ -11,7 +11,7 @@ Look for npm dependencies in js / package.json file and check potential takeover
 3. Retreive package.json, package-lock.json, yarn.lock files
 - `cat webservers.txt | nuclei -id yarn-lock,package-json -silent | awk '{print $4}' | anew scope.txt`
 4. Retreive webpack node_modules to parse them
-- `cat webservers.txt | httpx -silent -ms "node_modules/" | anew scope.txt` 
+- `cat katana.txt | httpx -silent -ms "node_modules/" | anew scope.txt` 
 
 ## Exploit
 1. Launch dep-npm-grabber
