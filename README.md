@@ -21,8 +21,8 @@ Look for npm dependencies in js / package.json file and check potential takeover
 
 # Help
 ```
-$ python3 dep-grabber.py --help
-usage: dep-grabber.py [-h] [-u URLS [URLS ...] | -f FILE] [-v] [-d] [-ct]
+python3 dep-npm-grabber.py --help
+usage: dep-npm-grabber.py [-h] [-u URLS [URLS ...] | -f FILE] [-v] [-d] [-ct]
 
 Dependency extractor from URLs
 
